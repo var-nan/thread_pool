@@ -13,8 +13,9 @@ void thread_pool_start(thread_pool_t *tpool) {
         /* acquire lock*/
         pthread_mutex_lock(&(tpool->mutex));
 
+        /* wait on empty task queue. */
         while ((tpool->cur_queue_size == 0) && !(tpool->shutdown)) {
-            pthread_con_wait(&(tpool->queue_empty), &(tpool->mutex));
+            pthread_con_wait(&(tpool->queue_not_empty), &(tpool->mutex));
         }
 
         if (tpool->shutdown) {
@@ -27,9 +28,10 @@ void thread_pool_start(thread_pool_t *tpool) {
         /* decrease current queue size. Assuming one thread gets only one task. */
         tpool->cur_queue_size--;
 
-        /* Signal if task queue is emtpy. */
+        
+        /* Signal if task queue is emtpy. Used during shutdown. */
         if (tpool->cur_queue_size == 0)
-            pthread_cond_signal(&(tpool->queue_empty));
+            pthread_cond_signal(&(tpool->queue_empty));        
 
         /* Signal if writing thread is waiting to add task.*/
         if (tpool->cur_queue_size == tpool->max_queue_size -1)
@@ -43,7 +45,7 @@ void thread_pool_start(thread_pool_t *tpool) {
     }
 }
 
-int thread_pool_init(thread_pool_t *tpool, int num_threads, int max_queue_size) {
+int thread_pool_init_qs(thread_pool_t *tpool, int num_threads, int max_queue_size) {
 
     /*allocate size for tpool and initialize*/
     //thread_pool_t pool;
@@ -77,7 +79,7 @@ int thread_pool_init(thread_pool_t *tpool, int num_threads, int max_queue_size) 
             // TODO: add waiting function to thread.
     }
 
-    //initialize conditional variables
+    /* initialize conditional variables */
     if ((status = pthread_mutex_init(&(tpool->mutex), NULL))!= 0)
         fprintf(stderr, "pthread_mutex_init %s", strerror(status)), exit(-1);
     if ((status = pthread_cond_init(&(tpool->queue_empty), NULL)) != 0)
@@ -94,10 +96,10 @@ int thread_pool_init(thread_pool_t *tpool, int num_threads, int max_queue_size) 
 
 
 int thread_pool_init(thread_pool_t *tpool, int num_thread) {
-    return thread_pool_init(tpool, num_thread, 256);
+    return thread_pool_init_qs(tpool, num_thread, 256);
 }
 
-int submit_task(thread_pool_t *tpool, task_t task) {
+int thread_pool_submit_task(thread_pool_t *tpool, task_t task) {
     
     //task_t task = {function, args, priority};
 
@@ -105,7 +107,7 @@ int submit_task(thread_pool_t *tpool, task_t task) {
     pthread_mutex_lock(&(tpool->mutex));
 
     // TODO: UNECESSARY LOCK
-    pthread_mutex_lock(&(tpool->task_queue->mutex));
+    // pthread_mutex_lock(&(tpool->task_queue->mutex));
 
     
     /* Block if queue is full*/
@@ -119,10 +121,12 @@ int submit_task(thread_pool_t *tpool, task_t task) {
     }
 
     if (tpool->cur_queue_size < tpool->max_queue_size) {    
-        insert_task(tpool->task_queue, task);
-        tpool->cur_queue_size++;
-        if (tpool->cur_queue_size == 1)
-            pthread_cond_signal(&(tpool->queue_not_empty));
+        if (insert_task(tpool->task_queue, task)) { // TODO: check return value of fn.
+            tpool->cur_queue_size++;
+            /* Signal if other threads waiting on empty queue.*/
+            if (tpool->cur_queue_size == 1)
+                pthread_cond_signal(&(tpool->queue_not_empty));
+        }
     }
     
     pthread_mutex_unlock(&(tpool->mutex));
@@ -130,7 +134,7 @@ int submit_task(thread_pool_t *tpool, task_t task) {
     return 0;    
 }
 
-int submit_task_list(thread_pool_t *tpool, task_t *tasks, int n) {
+int thread_pool_submit_task_list(thread_pool_t *tpool, task_t *tasks, int n) {
 
     /*
     1. Get lock on task queue
@@ -152,11 +156,13 @@ int submit_task_list(thread_pool_t *tpool, task_t *tasks, int n) {
         }
 
         if (tpool->cur_queue_size < tpool->max_queue_size) {    
-            insert_task(tpool->task_queue, *(tasks+i));
-            tpool->cur_queue_size++;
+            if (insert_task(tpool->task_queue, *(tasks+i))) { // TODO: check return value of fn.
+                tpool->cur_queue_size++;
 
-            if (tpool->cur_queue_size == 1)
-                pthread_cond_signal(&(tpool->queue_not_empty));
+                /* Signal if other threads waiting on empty queue.*/
+                if (tpool->cur_queue_size == 1)
+                    pthread_cond_signal(&(tpool->queue_not_empty));
+            }
         }  
     }
 
@@ -178,23 +184,37 @@ int thread_pool_shutdown(thread_pool_t *tpool, int finish) {
         return ;
     }
 
+    /* set closed flag to 1. */
     tpool->queue_closed = 1;
 
-    /*wait for task queue to empty*/
-
+    /* wait for task queue to empty. */
     while( tpool->cur_queue_size != 0) {
         pthread_cond_wait(&(tpool->queue_empty), &(tpool->mutex));
     }
 
     tpool->shutdown = 1;
 
+    /*TODO: add error handling code. */
     if (tpool->cur_queue_size == 0) {
         pthread_mutex_unlock(&(tpool->mutex));
     }
 
     /* add cleanup code*/
+
+    /* wake up any threads to recheck shutdown flag */
+    pthread_cond_broadcast(&(tpool->queue_not_empty));
+
+    pthread_cond_broadcast(&(tpool->queue_not_full));
+
+
+    /* wait for workers to finish. */
+    for ( int i = 0; i < tpool->num_threads; i++) {
+        pthread_join(tpool->threads[i], NULL);
+    }
+
+    /* clean up resources. */
+    free (tpool->threads);
+    free (tpool);
     
-
-
     return 0;
 }

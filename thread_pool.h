@@ -24,10 +24,10 @@ typedef struct thread_pool {
 
 /*declare thread_pool interface*/
 int thread_pool_init(thread_pool_t *tpool, int num_thread);
-int thread_pool_init(thread_pool_t *tpool, int num_threads, int max_queue_size);
+int thread_pool_init_qs(thread_pool_t *tpool, int num_threads, int max_queue_size);
 
-int submit_task(thread_pool_t *tpool, task_t task);
-int sumbit_task_list(thread_pool_t *tpool, task_t *task_list);
+int thread_pool_submit_task(thread_pool_t *tpool, task_t task);
+int thread_pool_submit_task_list(thread_pool_t *tpool, task_t *task_list, int n);
 
-int shutdown_tpool(thread_pool_t *tpool, int finish);
+int thread_pool_shutdown(thread_pool_t *tpool, int finish);
 
