@@ -23,7 +23,7 @@ int insert_task(tpool_pq_t *tpool_queue, task_t task) {
     return 1;
 }
 
-task_t get_task(tpool_pq_t *tpool_queue) {
+task_t *get_task(tpool_pq_t *tpool_queue) {
     
     task_t task;
     pthread_mutex_lock(&(tpool_queue->mutex));
@@ -38,7 +38,7 @@ task_t get_task(tpool_pq_t *tpool_queue) {
     
     pthread_mutex_unlock(&(tpool_queue->mutex));
 
-    return task;
+    return &task;
     
 }
 

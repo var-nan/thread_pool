@@ -7,7 +7,7 @@
 
 // define work_queue
 typedef struct thread_pool {
-    // thread_pool class
+    /* Thread pool struct*/
     int num_threads;
     int max_queue_size;
     int cur_queue_size;
@@ -15,9 +15,9 @@ typedef struct thread_pool {
     pthread_t *threads;
     tpool_pq_t *task_queue;
     pthread_mutex_t *mutex;
-    pthread_cond_t queue_not_full;
-    pthread_cond_t queue_empty;
-    pthread_cond_t queue_not_empty;
+    pthread_cond_t queue_not_full; /* Flag: threads wait if queue is full, threads signal if space is available.*/
+    pthread_cond_t queue_empty; /* Flag: thread waits if queue is empty, thread signals if task is added. */
+    pthread_cond_t queue_not_empty; /* Flag: threads signal if task is added.  */
     int queue_closed;
     int shutdown;
 } thread_pool_t;

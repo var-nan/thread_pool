@@ -2,6 +2,7 @@
 #include "thread_pool.h"
 #include <stdio.h>
 
+/*TODO: add logging. */
 
 void thread_pool_start(thread_pool_t *tpool) {
     // TODO:  in a loop, continously check work queue and execute tasks.
@@ -23,6 +24,10 @@ void thread_pool_start(thread_pool_t *tpool) {
 
         task = get_task(tpool);
 
+        /* decrease current queue size. Assuming one thread gets only one task. */
+        tpool->cur_queue_size--;
+
+        /* Signal if task queue is emtpy. */
         if (tpool->cur_queue_size == 0)
             pthread_cond_signal(&(tpool->queue_empty));
 
@@ -161,5 +166,35 @@ int submit_task_list(thread_pool_t *tpool, task_t *tasks, int n) {
 
 int thread_pool_shutdown(thread_pool_t *tpool, int finish) {
     
+    int status;
+    /* should return 0*/
+    if((status = pthread_mutex_lock(&(tpool->mutex))) != 0 ) {
+        fprintf(stderr, "pthread_mutex_lock %d", status );
+        exit(-1);
+    }
+
+    if (tpool->shutdown || tpool->queue_closed) {
+        pthread_mutex_unlock(&(tpool->mutex));
+        return ;
+    }
+
+    tpool->queue_closed = 1;
+
+    /*wait for task queue to empty*/
+
+    while( tpool->cur_queue_size != 0) {
+        pthread_cond_wait(&(tpool->queue_empty), &(tpool->mutex));
+    }
+
+    tpool->shutdown = 1;
+
+    if (tpool->cur_queue_size == 0) {
+        pthread_mutex_unlock(&(tpool->mutex));
+    }
+
+    /* add cleanup code*/
+    
+
+
     return 0;
 }
