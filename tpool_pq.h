@@ -25,6 +25,6 @@ int init_tpool_pq(tpool_pq_t *pq);
 
 int insert_task(tpool_pq_t *pq,task_t task);
 
-task_t get_task(tpool_pq_t *tpool);
+task_t *get_task(tpool_pq_t *tpool);
 
 int get_num_tasks(const tpool_pq_t *tpool);

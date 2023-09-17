@@ -5,6 +5,37 @@
 
 void thread_pool_start(thread_pool_t *tpool) {
     // TODO:  in a loop, continously check work queue and execute tasks.
+
+    task_t *task;
+
+    for (;;) {
+        /* acquire lock*/
+        pthread_mutex_lock(&(tpool->mutex));
+
+        while ((tpool->cur_queue_size == 0) && !(tpool->shutdown)) {
+            pthread_con_wait(&(tpool->queue_empty), &(tpool->mutex));
+        }
+
+        if (tpool->shutdown) {
+            pthread_mutex_unlock(&(tpool->mutex));
+            pthread_exit(NULL); /*TODO: add return value*/
+        }
+
+        task = get_task(tpool);
+
+        if (tpool->cur_queue_size == 0)
+            pthread_cond_signal(&(tpool->queue_empty));
+
+        /* Signal if writing thread is waiting to add task.*/
+        if (tpool->cur_queue_size == tpool->max_queue_size -1)
+            pthread_cond_signal(&(tpool->queue_not_full));
+        
+        pthread_mutex_unlock(&(tpool->mutex));
+
+        /*execute task*/
+        (*(task->function))(task->arguments);
+        free(task);
+    }
 }
 
 int thread_pool_init(thread_pool_t *tpool, int num_threads, int max_queue_size) {
@@ -47,7 +78,7 @@ int thread_pool_init(thread_pool_t *tpool, int num_threads, int max_queue_size) 
     if ((status = pthread_cond_init(&(tpool->queue_empty), NULL)) != 0)
         fprintf(stderr, "pthread_cond_init %s", strerror(status) ), exit(-1);
     
-    if ((status = pthread_cond_init(&(tpool->queue_full), NULL)) != 0)
+    if ((status = pthread_cond_init(&(tpool->queue_not_full), NULL)) != 0)
         fprintf(stderr, "pthread_cond_init &s", strerror(status)), exit(-1);
 
     if ((status = pthread_cond_init(&(tpool->queue_not_empty), NULL)) != 0)
@@ -74,7 +105,7 @@ int submit_task(thread_pool_t *tpool, task_t task) {
     
     /* Block if queue is full*/
     while ((tpool->cur_queue_size >= tpool->max_queue_size)) {
-        pthread_cond_wait(&(tpool->queue_full), &tpool->mutex);
+        pthread_cond_wait(&(tpool->queue_not_full), &tpool->mutex);
     }
 
     if (tpool->shutdown || tpool->queue_closed){
@@ -107,7 +138,7 @@ int submit_task_list(thread_pool_t *tpool, task_t *tasks, int n) {
 
     for (int i = 0; i < n ; i++) {
         while (tpool->cur_queue_size >= tpool->max_queue_size) {
-            pthread_cond_wait(&(tpool->queue_full), &(tpool->mutex));
+            pthread_cond_wait(&(tpool->queue_not_full), &(tpool->mutex));
         }
 
         if (tpool->shutdown || tpool->queue_closed){
@@ -128,6 +159,7 @@ int submit_task_list(thread_pool_t *tpool, task_t *tasks, int n) {
     return 0;
 }
 
-int shutdown_tpool(thread_pool_t *tpool, int finish) {
+int thread_pool_shutdown(thread_pool_t *tpool, int finish) {
+    
     return 0;
 }
