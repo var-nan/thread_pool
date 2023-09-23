@@ -6,18 +6,15 @@
 typedef enum priority_t {LOW = 1, MEDIUM = 3, HIGH = 5} priority_t;
 
 typedef struct task_t {
-    void (*function)();
+    void *(*function)(void *);
     void *arguments;
-    /* struct task_t *next; */
     priority_t priority;
 } task_t;
 
-/* TODO: remove static declarations */
 typedef struct tpool_pq {
-    task_t *task_array; /* TODO: change to pointer. */
+    task_t *task_array;
     int n_tasks;
     int queue_size;
-    /* pthread_mutex_t mutex; */
 } tpool_pq_t;
 
 
