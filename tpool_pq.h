@@ -1,12 +1,13 @@
 #include <pthread.h>
 
-#define MAX_QUEUE_SIZE 64
-#define CONSTANT 10
+#ifndef TASK_QUEUE_TYPES
 
-typedef enum priority_t {LOW = 1, MEDIUM = 3, HIGH = 5} priority_t;
+#define TASK_QUEUE_TYPES 1
 
-typedef struct task_t {
-    void *(*function)(void *);
+typedef enum priority {LOW = 1, MEDIUM = 3, HIGH = 5} priority_t;
+
+typedef struct task {
+    void (*function)(int);
     void *arguments;
     priority_t priority;
 } task_t;
@@ -17,6 +18,7 @@ typedef struct tpool_pq {
     int queue_size;
 } tpool_pq_t;
 
+#endif
 
 // functions for priority queue
 int init_tpool_pq(tpool_pq_t **pq, int queue_size);

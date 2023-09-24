@@ -56,28 +56,6 @@ void build_heap(task_t *tasks, int n_tasks){
     }
 }
 
-/*shadow function for inti_tpool_pq */
-int shadow_init_tpool_pq(tpool_pq_t **tpool_pqs, int queue_size) {
-
-    //tpool_pq_t tpool_queue;
-    tpool_pq_t *tpool_pq;
-    if ((tpool_pq = (tpool_pq_t *) malloc(sizeof(struct tpool_pq))) == NULL)
-        printf("malloc returned null\n");
-    
-    // TODO: change static initialization to dynamic initialization;
-    tpool_pq->n_tasks = 0;
-    tpool_pq->queue_size = queue_size;
-    tpool_pq->task_array = (task_t *)malloc(sizeof(task_t)*queue_size);
-
-    /* call build heap only if some tasks available. TODO:  */
-    if (tpool_pq->n_tasks > 0)
-        build_heap(tpool_pq->task_array, tpool_pq->n_tasks);
-        
-    *tpool_pqs = tpool_pq;
-}
-
-
-
 int init_tpool_pq(tpool_pq_t **tpool_pqs, int queue_size) {
 
     tpool_pq_t *tpool_pq;
@@ -115,10 +93,12 @@ task_t get_task(tpool_pq_t **tpool_queue) {
     
     task_t task;
 
+    int queue_size = (*tpool_queue)->queue_size;
+
     int root = 0;
     int last_inserted_index = (*tpool_queue)->n_tasks - 1;
 
-    if ((*tpool_queue)->n_tasks < MAX_QUEUE_SIZE) {
+    if ((*tpool_queue)->n_tasks < queue_size) {
         // insert task into queue
         task = (*tpool_queue)->task_array[0];
 
